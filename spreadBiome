@@ -1,0 +1,262 @@
+--SPREAD BACKUP
+--generation des biomes dans les chunks generateurs
+local function generateBiomeOrigin(chunkData, generationParameter)
+	if (chunkData["isBiomeGenerator"]) then
+		local randomGenerator = generationParameter["randomGenerator"]
+
+		local array_of_biome_poided = {}
+		for biome_name,biome_param in pairs(generationParameter["availableBiome"]) do
+			for i = 1, biome_param["poids"], 1 do
+				if biome_param["id"] ~= 0 then
+					table.insert(array_of_biome_poided, biome_name)
+				end
+			end
+		end
+		local nbRandomlySelectedBiome = randomGenerator:NextInteger(1,#array_of_biome_poided)
+		local biomeName = array_of_biome_poided[nbRandomlySelectedBiome]
+		local biomeParam = generationParameter["availableBiome"][biomeName]
+
+		for i,x in pairs(chunkData["biome_map"]) do
+			for j,y in pairs(x) do
+				chunkData["biome_map"][i][j]["name"] = biomeName
+				chunkData["biome_map"][i][j]["id"] = biomeParam["id"]
+			end
+		end
+		return chunkData
+	else
+		return chunkData
+	end
+end
+
+
+
+local function spreadBiome(MAP, generationParameter)
+	local randomGenerator = generationParameter["randomGenerator"]
+
+	local flag_spread = true
+	--while tout les blocks ne sont pas colorier (on colorie en collone verticale)
+	while (flag_spread)  do
+		flag_spread = false
+		print("--------------------------")
+		print("A new loop")
+
+		--Spreading comme jaja
+		for chunkIterator, chunkData in pairs(MAP["map_data"]) do
+
+			for i, y in pairs(chunkData["biome_map"]) do
+				for j, z in pairs(y) do
+
+					local thisColBiomeID = z["id"]
+					local thisColBiomeName = z["name"]
+
+					--print("thisColBiomeID", thisColBiomeID)
+					--print("thisColBiomeName",thisColBiomeName)
+
+					if (thisColBiomeID ~= 0) then
+						--Nous sommes un block colorier, verifions si nous pouvons spread
+						----------------------------------------------------------------------------
+						--NORD
+						if (chunkData["biome_map"][tostring(i+1)] ~= nil) then
+							--Nous somme toukours dans la bordure du chunk
+							local NColBiomeID = chunkData["biome_map"][tostring(i+1)][tostring(j)]["id"]
+							local NColBiomeName = chunkData["biome_map"][tostring(i+1)][tostring(j)]["name"]
+
+							if (NColBiomeID == 0) then
+								-- Le block au nord n'est pas colorié, on peut donc spread
+
+								-- Le spread à une probabilité de ne pas réussir
+								if (randomGenerator:NextInteger(0,100) < generationParameter["availableBiome"][NColBiomeName]["chanceSpread"]) then
+									--print("N1")
+									MAP["map_data"][tostring(chunkIterator)]["biome_map"][tostring(i+1)][tostring(j)]["id"] = thisColBiomeID
+									MAP["map_data"][tostring(chunkIterator)]["biome_map"][tostring(i+1)][tostring(j)]["biome"] = thisColBiomeName
+								end
+							end
+						else
+							--Nous somme hors bordure du chunk
+							--Quel est le chunk au dessus de nous ?
+							--Il nous faut savoir notre propre chunk position
+							local thisChunkPos = chunkData["coord"]
+							local NChunkData = MAP["map_data"][tostring(thisChunkPos.X+1) .. "/" .. tostring(thisChunkPos.Y)]
+							--Le chunk au dessu de nous existe t-il ?
+							if(NChunkData ~= nil) then
+								--On doit recuperrer la case en bordure, cote à cote de la notre
+								local NColBiomeID = NChunkData["biome_map"]["0"][tostring(math.floor(generationParameter["chunkSizeH"]/2))]["id"]
+								local NColBiomeName = NChunkData["biome_map"]["0"][tostring(math.floor(generationParameter["chunkSizeH"]/2))]["name"]
+
+								-- Le block au nord n'est pas colorié, on peut donc spread
+								if (NColBiomeID == 0) then
+									-- Le block au nord n'est pas colorié, on peut donc spread
+
+									-- Le spread à une probabilité de ne pas réussir
+									if (randomGenerator:NextInteger(0,100) < generationParameter["availableBiome"][NColBiomeName]["chanceSpread"]) then
+										--print("N2")
+										MAP["map_data"][tostring(thisChunkPos.X+1) .. "/" .. tostring(thisChunkPos.Y)]["biome_map"]["0"][tostring(math.floor(generationParameter["chunkSizeH"]/2))]["id"] = thisColBiomeID
+										MAP["map_data"][tostring(thisChunkPos.X+1) .. "/" .. tostring(thisChunkPos.Y)]["biome_map"]["0"][tostring(math.floor(generationParameter["chunkSizeH"]/2))]["id"] = thisColBiomeName
+									end
+								end
+							end
+						end
+						----------------------------------------------------------------------------
+						--SUD
+						if (chunkData["biome_map"][tostring(i-1)] ~= nil) then
+							local SColBiomeID = chunkData["biome_map"][tostring(i-1)][tostring(j)]["id"]
+							local SColBiomeName = chunkData["biome_map"][tostring(i-1)][tostring(j)]["name"]
+
+							if (SColBiomeID == 0) then
+								-- on peut spread vers le N
+								if (randomGenerator:NextInteger(1,100) < generationParameter["availableBiome"][SColBiomeName]["chanceSpread"]) then
+									MAP["map_data"][tostring(chunkIterator)]["biome_map"][tostring(i-1)][tostring(j)]["id"] = thisColBiomeID
+									MAP["map_data"][tostring(chunkIterator)]["biome_map"][tostring(i-1)][tostring(j)]["biome"] = thisColBiomeName
+								end
+							end
+						else
+							--Nous somme hors bordure du chunk
+							--Quel est le chunk au dessus de nous ?
+							--Il nous faut savoir notre propre chunk position
+							local thisChunkPos = chunkData["coord"]
+							local SChunkData = MAP["map_data"][tostring(thisChunkPos.X-1) .. "/" .. tostring(thisChunkPos.Y)]
+							--Le chunk au dessu de nous existe t-il ?
+							if(SChunkData ~= nil) then
+								--On doit recuperrer la case en bordure, cote à cote de la notre
+								local SColBiomeID = SChunkData["biome_map"][tostring(generationParameter["chunkSizeW"]-1)][tostring(math.floor(generationParameter["chunkSizeH"]/2))]["id"]
+								local SColBiomeName = SChunkData["biome_map"][tostring(generationParameter["chunkSizeW"]-1)][tostring(math.floor(generationParameter["chunkSizeH"]/2))]["name"]
+
+								-- Le block au nord n'est pas colorié, on peut donc spread
+								if (SColBiomeID == 0) then
+									-- Le block au nord n'est pas colorié, on peut donc spread
+
+									-- Le spread à une probabilité de ne pas réussir
+									if (randomGenerator:NextInteger(0,100) < generationParameter["availableBiome"][SColBiomeName]["chanceSpread"]) then
+										MAP["map_data"][tostring(thisChunkPos.X-1) .. "/" .. tostring(thisChunkPos.Y)]["biome_map"][tostring(generationParameter["chunkSizeW"]-1)][tostring(math.floor(generationParameter["chunkSizeH"]/2))]["id"] = thisColBiomeID
+										MAP["map_data"][tostring(thisChunkPos.X-1) .. "/" .. tostring(thisChunkPos.Y)]["biome_map"][tostring(generationParameter["chunkSizeW"]-1)][tostring(math.floor(generationParameter["chunkSizeH"]/2))]["id"] = thisColBiomeName
+									end
+								end
+							end
+						end
+						----------------------------------------------------------------------------
+						--EST
+						if (chunkData["biome_map"][tostring(i)][tostring(j+1)] ~= nil) then								
+							local EColBiomeID = chunkData["biome_map"][tostring(i)][tostring(j+1)]["id"]
+							local EColBiomeName = chunkData["biome_map"][tostring(i)][tostring(j+1)]["name"]
+
+							if (EColBiomeID == 0) then
+								-- on peut spread vers le N
+								if (randomGenerator:NextInteger(1,100) < generationParameter["availableBiome"][EColBiomeName]["chanceSpread"]) then
+									MAP["map_data"][tostring(chunkIterator)]["biome_map"][tostring(i)][tostring(j+1)]["id"] = thisColBiomeID
+									MAP["map_data"][tostring(chunkIterator)]["biome_map"][tostring(i)][tostring(j+1)]["biome"] = thisColBiomeName
+								end
+							end
+						else
+							--Nous somme hors bordure du chunk
+							--Quel est le chunk au dessus de nous ?
+							--Il nous faut savoir notre propre chunk position
+							local thisChunkPos = chunkData["coord"]
+							local EChunkData = MAP["map_data"][tostring(thisChunkPos.X) .. "/" .. tostring(thisChunkPos.Y+1)]
+							--Le chunk au dessu de nous existe t-il ?
+							if(EChunkData ~= nil) then
+								--On doit recuperrer la case en bordure, cote à cote de la notre
+								local EColBiomeID = EChunkData["biome_map"][tostring(math.floor(generationParameter["chunkSizeW"]/2))]["0"]["id"]
+								local EColBiomeName = EChunkData["biome_map"][tostring(math.floor(generationParameter["chunkSizeW"]/2))]["0"]["name"]
+
+								-- Le block au nord n'est pas colorié, on peut donc spread
+								if (EColBiomeID == 0) then
+									-- Le block au nord n'est pas colorié, on peut donc spread
+
+									-- Le spread à une probabilité de ne pas réussir
+									if (randomGenerator:NextInteger(0,100) < generationParameter["availableBiome"][EColBiomeName]["chanceSpread"]) then
+										MAP["map_data"][tostring(thisChunkPos.X) .. "/" .. tostring(thisChunkPos.Y+1)]["biome_map"][tostring(math.floor(generationParameter["chunkSizeW"]/2))]["0"]["id"] = thisColBiomeID
+										MAP["map_data"][tostring(thisChunkPos.X) .. "/" .. tostring(thisChunkPos.Y+1)]["biome_map"][tostring(math.floor(generationParameter["chunkSizeW"]/2))]["0"]["id"] = thisColBiomeName
+									end
+								end
+							end
+						end
+						----------------------------------------------------------------------------
+						--OUEST
+						if (chunkData["biome_map"][tostring(i)][tostring(j-1)] ~= nil) then
+							local OColBiomeID = chunkData["biome_map"][tostring(i)][tostring(j-1)]["id"]
+							local OColBiomeName = chunkData["biome_map"][tostring(i)][tostring(j-1)]["name"]
+
+							if (OColBiomeID == 0) then
+								-- on peut spread vers le N
+								if (randomGenerator:NextInteger(1,100) < generationParameter["availableBiome"][OColBiomeName]["chanceSpread"]) then
+									MAP["map_data"][tostring(chunkIterator)]["map"][tostring(i)][tostring(j-1)]["id"] = thisColBiomeID
+									MAP["map_data"][tostring(chunkIterator)]["map"][tostring(i)][tostring(j-1)]["biome"] = thisColBiomeName
+								end
+							end
+						else
+							--Nous somme hors bordure du chunk
+							--Quel est le chunk au dessus de nous ?
+							--Il nous faut savoir notre propre chunk position
+							local thisChunkPos = chunkData["coord"]
+							local SChunkData = MAP["map_data"][tostring(thisChunkPos.X) .. "/" .. tostring(thisChunkPos.Y+1)]
+							--Le chunk au dessu de nous existe t-il ?
+							if(SChunkData ~= nil) then
+								--On doit recuperrer la case en bordure, cote à cote de la notre
+								local SColBiomeID = SChunkData["biome_map"][tostring(math.floor(generationParameter["chunkSizeW"]/2))][tostring(generationParameter["chunkSizeH"]-1)]["id"]
+								local SColBiomeName = SChunkData["biome_map"][tostring(math.floor(generationParameter["chunkSizeW"]/2))][tostring(generationParameter["chunkSizeH"]-1)]["name"]
+
+								-- Le block au nord n'est pas colorié, on peut donc spread
+								if (SColBiomeID == 0) then
+									-- Le block au nord n'est pas colorié, on peut donc spread
+
+									-- Le spread à une probabilité de ne pas réussir
+									if (randomGenerator:NextInteger(0,100) < generationParameter["availableBiome"][SColBiomeName]["chanceSpread"]) then
+										MAP["map_data"][tostring(thisChunkPos.X) .. "/" .. tostring(thisChunkPos.Y+1)]["biome_map"][tostring(math.floor(generationParameter["chunkSizeW"]/2))][tostring(generationParameter["chunkSizeH"]-1)]["id"] = thisColBiomeID
+										MAP["map_data"][tostring(thisChunkPos.X) .. "/" .. tostring(thisChunkPos.Y+1)]["biome_map"][tostring(math.floor(generationParameter["chunkSizeW"]/2))][tostring(generationParameter["chunkSizeH"]-1)]["id"] = thisColBiomeName
+									end
+								end
+							end
+						end
+					else	
+						flag_spread = true
+					end
+				end
+			end
+
+		end
+	end
+	print(MAP)
+	--A rajouter les blocs entourer de 4 autre block diffrents devienne ces blocks
+	-- 2 hunk gene ne peuvent pas etre l'un a coter de l'autre
+
+	return MAP
+end
+
+--[[
+ON 2 fct 
+La primere lead la seconde
+La premiere tire un nombre PAIR P1
+La seconde tire un nombre PAIR hormis P1
+On realise la moyennes entre les 2 et on obteint l'iD de maiere uniforme
+La range de nombre pair va de [0 à ID*2] tq si IDmax = 6 alors les nombres possible a tirer sont [0,2,4,6,8,10,12]
+
+La logique de la fonction est de generer des paliers d'une certain longeur L
+L est determiner aléatoiremnt entre l'interval [minBlock, maxBlock] d'un biome en parametre
+
+
+
+
+
+
+]]--
+
+
+
+local function applyBiomeOnMap(MAP)
+
+	for chunkIterator, chunkData in pairs(MAP["map_data"]) do
+
+		for i,x in pairs(chunkData["map"]) do
+			for j,y in pairs(x) do
+				for k,z in pairs(y) do
+
+					MAP["map_data"][chunkIterator]["map"][i][j][k]["id"] 
+						= math.abs(MAP["map_data"][chunkIterator]["biome_map"][i][j]["id"])
+				end
+			end
+		end
+
+	end
+
+	return MAP
+end
